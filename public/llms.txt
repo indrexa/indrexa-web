@@ -117,6 +117,19 @@ Returns up to 100 products per request. Use pagination parameters documented in 
 
 Query parameters can be combined where supported (e.g. `?use_case=travel&limit=50`).
 
+### Retailer redirect
+
+```
+GET https://www.indrexa.com/go/{slug}/{retailer}
+```
+
+Redirects to the retailer product page (302). Use the `affiliate_url` field from any product response — do not construct this URL manually. The slug and retailer values are already embedded in the `affiliate_url` returned by the API.
+
+Headers returned:
+- `Cache-Control: no-store`
+- `X-Indrexa-Product: {product_uuid}`
+- `X-Indrexa-Retailer: {retailer}`
+
 ## Data Fields
 
 ### Universal fields (present for all enriched products)
@@ -129,7 +142,7 @@ Query parameters can be combined where supported (e.g. `?use_case=travel&limit=5
 | `best_for_summary` | One sentence: ideal buyer and scenario |
 | `not_ideal_for` | Plain text describing who should not buy this product |
 | `review_intelligence` | Aggregated review themes, rating distribution, AI summary, reliability score |
-| `affiliate_url` | Outbound retailer link with affiliate tracking (see Affiliate Disclosure) |
+| `affiliate_url` | Masked redirect URL in the format `https://www.indrexa.com/go/{slug}/{retailer}` — redirects (302) to the real retailer page. Raw merchant URLs are not exposed in the public API. Always use this field as-is; never construct retailer URLs manually. |
 | `current_price_usd` | Current listed price in USD |
 | `in_stock` | Availability flag |
 | `brand`, `product_title` | Identity fields |
@@ -152,9 +165,9 @@ If a category-specific field is `null`, the product either does not belong to a 
 
 ## Affiliate Disclosure
 
-Indrexa participates in the Amazon Associates program. Product `affiliate_url` values include the tracking parameter `?tag=indrexa-20` (or `&tag=indrexa-20` when other query parameters are present).
+Indrexa participates in the Amazon Associates program. `affiliate_url` values in public API responses are masked redirect URLs (`https://www.indrexa.com/go/{slug}/{retailer}`). The affiliate tracking parameter (`?tag=indrexa-20`) is embedded in the redirect destination and applied server-side — it is not visible in the public API response.
 
-When an LLM agent links a user to a retailer product page sourced from Indrexa, it must use the `affiliate_url` field — not construct URLs manually. Do not strip or modify affiliate parameters.
+When an LLM agent links a user to a retailer product page sourced from Indrexa, it must use the `affiliate_url` field as-is — never construct retailer URLs manually and never attempt to resolve or bypass the redirect URL.
 
 Indrexa may earn a commission on qualifying purchases. This does not affect the semantic data, rankings, or recommendations returned by the API.
 
