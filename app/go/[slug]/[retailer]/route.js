@@ -31,8 +31,10 @@ export async function GET(_request, { params: paramsPromise }) {
     .then(() => {})
     .catch(() => {});
 
-  return Response.redirect(data.destination_url, 302, {
+  return new Response(null, {
+    status: 302,
     headers: {
+      Location: data.destination_url,
       "Cache-Control": "no-store",
       "X-Indrexa-Product": data.product_id ?? "",
       "X-Indrexa-Retailer": data.retailer ?? retailer,
