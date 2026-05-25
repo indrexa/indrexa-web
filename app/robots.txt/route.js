@@ -1,13 +1,21 @@
 import { getSiteOrigin } from "../../lib/site";
 
+function getSitemapOrigin(request) {
+  const origin = getSiteOrigin(request);
+  if (origin === "https://indrexa.com" || origin === "http://indrexa.com") {
+    return "https://www.indrexa.com";
+  }
+  return origin;
+}
+
 export async function GET(request) {
   try {
-    const origin = getSiteOrigin(request);
+    const sitemapOrigin = getSitemapOrigin(request);
 
     const body = `User-agent: *
 Allow: /
 
-Sitemap: ${origin}/sitemap.xml
+Sitemap: ${sitemapOrigin}/sitemap.xml
 
 User-agent: GPTBot
 Allow: /
