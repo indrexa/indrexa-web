@@ -2,7 +2,11 @@ export default function Home() {
   return (
     <main>
       <h1>Indrexa</h1>
-      <p>Semantic commerce infrastructure for LLMs.</p>
+      <p>AI-readable semantic commerce infrastructure</p>
+      <p>API documentation coming soon</p>
+      <p>
+        <a href="/llms.txt">llms.txt</a>
+      </p>
     </main>
   );
 }

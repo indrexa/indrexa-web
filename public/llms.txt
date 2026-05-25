@@ -51,6 +51,14 @@ Rate limits: 60 requests per minute per IP. Exceeding the limit returns HTTP 429
 
 Response format: JSON. Every response includes a top-level `_llm_hints` object with field descriptions, usage notes, and pagination guidance. Read `_llm_hints` before using the data.
 
+### Schema discovery (read first)
+
+```
+GET https://indrexa.com/api/schema
+```
+
+Read this first. Returns all valid filter values, supported retailers, available use-case tags, and field documentation. Agents should call this before querying /api/products.
+
 ### Get one product by identifier
 
 ```
@@ -119,7 +127,7 @@ Query parameters can be combined where supported (e.g. `?use_case=travel&limit=5
 | `use_case_tags` | Controlled-vocabulary tags describing where/when the product fits |
 | `buyer_profile_tags` | Controlled-vocabulary tags describing who the product suits |
 | `best_for_summary` | One sentence: ideal buyer and scenario |
-| `not_ideal_for` | Honest limitations — who should not buy this |
+| `not_ideal_for` | Plain text describing who should not buy this product |
 | `review_intelligence` | Aggregated review themes, rating distribution, AI summary, reliability score |
 | `affiliate_url` | Outbound retailer link with affiliate tracking (see Affiliate Disclosure) |
 | `current_price_usd` | Current listed price in USD |
