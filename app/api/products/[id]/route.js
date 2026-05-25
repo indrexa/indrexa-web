@@ -8,9 +8,10 @@ import {
   jsonResponse,
 } from "../../../../lib/products";
 
-export async function GET(_request, { params }) {
+export async function GET(_request, { params: paramsPromise }) {
   try {
-    const id = params?.id?.trim();
+    const { id: rawId } = await paramsPromise;
+    const id = rawId?.trim();
     if (!id) {
       return errorResponse("Missing product id", 400);
     }
