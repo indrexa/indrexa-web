@@ -11,6 +11,18 @@ import {
   PRODUCT_LIST_SELECT,
 } from "../../../lib/products";
 
+const SORT_MAP = {
+  price_asc: { column: "current_price_usd", ascending: true, nullsFirst: false },
+  price_desc: { column: "current_price_usd", ascending: false, nullsFirst: false },
+  rating: { column: "average_rating", ascending: false, nullsFirst: false },
+  reviews: { column: "total_reviews", ascending: false, nullsFirst: false },
+  newest: { column: "indrexa_created_at", ascending: false, nullsFirst: false },
+};
+
+function parseSort(value) {
+  return SORT_MAP[value] ?? null;
+}
+
 function parseLimit(value) {
   const parsed = Number.parseInt(value ?? "20", 10);
   if (Number.isNaN(parsed) || parsed < 1) {
@@ -37,6 +49,7 @@ export async function GET(request) {
     const retailerId = searchParams.get("retailer_id");
     const limit = parseLimit(searchParams.get("limit"));
     const offset = parseOffset(searchParams.get("offset"));
+    const sortConfig = parseSort(searchParams.get("sort"));
 
     if (retailerId && !retailer) {
       return errorResponse(
@@ -202,9 +215,16 @@ export async function GET(request) {
       query = query.in("id", productIdsForRetailer);
     }
 
-    const { data: products, error } = await query.order("product_title", {
-      ascending: true,
-    });
+    if (sortConfig) {
+      query = query.order(sortConfig.column, {
+        ascending: sortConfig.ascending,
+        nullsFirst: sortConfig.nullsFirst,
+      });
+    } else {
+      query = query.order("product_title", { ascending: true });
+    }
+
+    const { data: products, error } = await query;
 
     if (error) {
       throw error;
@@ -250,7 +270,16 @@ function listHints() {
       "retailer",
       "upc",
       "retailer_id",
+      "sort",
     ],
+    available_sort_values: [
+      "price_asc",
+      "price_desc",
+      "rating",
+      "reviews",
+      "newest",
+    ],
+    sort_default: "no sort applied — Supabase natural order",
     pagination: "use offset parameter for next page",
     best_offer_null_means:
       "all known offers are currently out of stock — check all_offers for availability",

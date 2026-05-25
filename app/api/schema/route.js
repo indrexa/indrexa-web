@@ -42,6 +42,17 @@ export async function GET() {
         "/api/schema":
           "This document — read first to discover valid filters and tag values",
       },
+      query_parameters: {
+        use_case: "filter by use_case tag (see available_use_case_tags)",
+        category: "filter by category path segment (see available_categories)",
+        retailer: "filter by retailer name (see supported_retailers)",
+        upc: "filter by UPC code",
+        retailer_id:
+          "filter by retailer-specific product ID — requires retailer param",
+        sort: "sort order — valid values: price_asc, price_desc, rating, reviews, newest",
+        limit: "results per page, 1–100 (default 20)",
+        offset: "pagination offset (default 0)",
+      },
       id_types_accepted: ["indrexa_uuid", "asin", "upc"],
       universal_fields: [
         "indrexa_id",
