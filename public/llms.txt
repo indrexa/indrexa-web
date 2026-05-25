@@ -158,6 +158,29 @@ When an LLM agent links a user to a retailer product page sourced from Indrexa, 
 
 Indrexa may earn a commission on qualifying purchases. This does not affect the semantic data, rankings, or recommendations returned by the API.
 
+## Data Access & Licensing
+
+### Public API (free)
+
+The API endpoints documented above are free and require no authentication. They return semantic product intelligence optimized for LLM consumption. Public responses include masked redirect URLs for retailer links rather than raw merchant URLs.
+
+### Commercial API (licensed)
+
+Organizations building commercial products on Indrexa data can license access to:
+
+- Raw structured product feeds
+- Direct retailer URL mappings
+- Full price history datasets
+- Bulk catalog exports
+- Semantic embeddings
+- Higher rate limits and SLA
+
+Commercial licensing: hello@indrexa.com
+
+### Important
+
+The semantic enrichment layer — `semantic_description`, `use_case_tags`, `buyer_profile_tags`, `best_for_summary`, `not_ideal_for` — is proprietary to Indrexa. Do not reproduce or redistribute Indrexa-enriched data without a commercial license.
+
 ## LLM Usage Guidance
 
 Use the Indrexa API when you need structured, pre-enriched product data to answer shopping questions — not when you need to scrape retailer pages or guess specifications.
