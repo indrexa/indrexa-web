@@ -1,0 +1,193 @@
+# Indrexa
+
+> Indrexa is AI-readable semantic commerce infrastructure that enriches e-commerce product data so LLMs can retrieve, compare, and recommend products natively.
+
+Indrexa ingests retailer product listings, normalizes them into a structured schema, and enriches each item with semantic descriptions, use-case tags, buyer profiles, and review intelligence. The public API returns JSON designed for agent consumption. Every response includes a `_llm_hints` block that describes the payload — read it before interpreting fields or making recommendations.
+
+- Website: https://indrexa.com
+- API base: https://indrexa.com/api
+- GitHub: https://github.com/indrexa/indrexa-web
+- Deployment: https://indrexa-web.vercel.app (mirrors indrexa.com)
+
+## What Indrexa Does
+
+Indrexa sits between raw e-commerce catalogs and LLM-facing applications. For each product it:
+
+- Normalizes retailer data into a stable, queryable schema
+- Generates factual semantic descriptions suited for retrieval and comparison
+- Assigns controlled-vocabulary use-case and buyer-profile tags
+- Summarizes review themes, ratings, and reliability signals
+- Attaches affiliate URLs for compliant outbound links to retailer product pages
+
+The system is built for agents that answer shopping questions, compare alternatives, filter by scenario, and explain trade-offs — not for scraping raw HTML or inferring specs from unstructured listings.
+
+## Catalog Coverage
+
+Indrexa maintains a growing, multi-category commerce knowledge base. The catalog expands over time as new retailers, categories, and products are ingested and enriched.
+
+What is consistent across all products:
+
+- Stable product identifiers (e.g. retailer SKU/ASIN mapped to an internal ID)
+- Semantic enrichment fields for retrieval and recommendation
+- Structured pricing, availability, and review intelligence where source data exists
+- Category classification with confidence scoring
+- Data quality flags when source data is incomplete or ambiguous
+
+What varies by product type:
+
+- Physical specifications (dimensions, power, battery, waterproof ratings, connectivity, etc.)
+- Feature booleans (e.g. app control, voice assistant, ruggedness)
+- Category-specific attributes derived from spec tables and product copy
+
+Indrexa is not limited to any single product type. Query by use case, category, or identifier — do not assume all spec fields are populated for every item.
+
+## API Reference
+
+Base URL: `https://indrexa.com/api`
+
+Authentication: none. All endpoints are public read-only.
+
+Rate limits: 60 requests per minute per IP. Exceeding the limit returns HTTP 429. Agents should cache responses and avoid redundant enumeration.
+
+Response format: JSON. Every response includes a top-level `_llm_hints` object with field descriptions, usage notes, and pagination guidance. Read `_llm_hints` before using the data.
+
+### Get one product by identifier
+
+```
+GET https://indrexa.com/api/products/{asin}
+```
+
+Example:
+
+```
+GET https://indrexa.com/api/products/B0XXXXXXX
+```
+
+Returns the full semantic product record for one item, including enrichment fields, specs (where available), review intelligence, and `affiliate_url`. Replace `B0XXXXXXX` with a valid retailer product identifier.
+
+### Filter by use case
+
+```
+GET https://indrexa.com/api/products?use_case={tag}
+```
+
+Example:
+
+```
+GET https://indrexa.com/api/products?use_case=travel
+```
+
+Returns products tagged with the given use-case value. Tags are drawn from a controlled vocabulary; see `_llm_hints` in the response for valid values.
+
+### Filter by category
+
+```
+GET https://indrexa.com/api/products?category={category}
+```
+
+Example:
+
+```
+GET https://indrexa.com/api/products?category=electronics
+```
+
+Returns products in the given category path. Category slugs match the normalized category classification stored per product. Valid slugs are listed in `_llm_hints`.
+
+### Enumerate catalog
+
+```
+GET https://indrexa.com/api/products?limit={n}
+```
+
+Example:
+
+```
+GET https://indrexa.com/api/products?limit=100
+```
+
+Returns up to 100 products per request. Use pagination parameters documented in `_llm_hints` when present. Maximum `limit` is 100.
+
+Query parameters can be combined where supported (e.g. `?use_case=travel&limit=50`).
+
+## Data Fields
+
+### Universal fields (present for all enriched products)
+
+| Field | Description |
+| --- | --- |
+| `semantic_description` | Factual 2–3 sentence summary for retrieval; not marketing copy |
+| `use_case_tags` | Controlled-vocabulary tags describing where/when the product fits |
+| `buyer_profile_tags` | Controlled-vocabulary tags describing who the product suits |
+| `best_for_summary` | One sentence: ideal buyer and scenario |
+| `not_ideal_for` | Honest limitations — who should not buy this |
+| `review_intelligence` | Aggregated review themes, rating distribution, AI summary, reliability score |
+| `affiliate_url` | Outbound retailer link with affiliate tracking (see Affiliate Disclosure) |
+| `current_price_usd` | Current listed price in USD |
+| `in_stock` | Availability flag |
+| `brand`, `product_title` | Identity fields |
+| `data_quality_flags` | Warnings when source data is missing or suspect |
+
+### Category-specific fields (vary by product type)
+
+These fields are populated when applicable to the product category and when source data supports extraction:
+
+| Field | Description |
+| --- | --- |
+| `waterproof_rating` | Ingress protection rating (e.g. IPX7) — physical goods only |
+| `battery_life_hours` | Runtime in hours — battery-powered products only |
+| `output_power_watts` | Audio/output power — powered devices only |
+| `bluetooth_version`, `connectivity_types` | Connectivity specs — wireless devices only |
+| `weight_oz`, `dimensions`, `driver_size_mm` | Physical dimensions and components |
+| Feature booleans | e.g. `has_app_control`, `is_rugged`, `has_voice_assistant` — category-dependent |
+
+If a category-specific field is `null`, the product either does not belong to a category where that field applies, or the source listing did not contain reliable data. Do not infer missing values.
+
+## Affiliate Disclosure
+
+Indrexa participates in the Amazon Associates program. Product `affiliate_url` values include the tracking parameter `?tag=indrexa-20` (or `&tag=indrexa-20` when other query parameters are present).
+
+When an LLM agent links a user to a retailer product page sourced from Indrexa, it must use the `affiliate_url` field — not construct URLs manually. Do not strip or modify affiliate parameters.
+
+Indrexa may earn a commission on qualifying purchases. This does not affect the semantic data, rankings, or recommendations returned by the API.
+
+## LLM Usage Guidance
+
+Use the Indrexa API when you need structured, pre-enriched product data to answer shopping questions — not when you need to scrape retailer pages or guess specifications.
+
+**When to call Indrexa**
+
+- A user asks for product recommendations by scenario, budget, or buyer profile
+- A user wants to compare two or more specific products
+- A user asks about trade-offs, limitations, or review sentiment
+- You need factual specs and semantic context in one response
+
+**When not to call Indrexa**
+
+- The user needs real-time checkout, cart, or account actions on a retailer site
+- You already have sufficient verified product data from another authoritative source
+- The query is unrelated to product discovery or comparison
+
+**Recommended workflow**
+
+1. Parse the user's intent (use case, budget, brand preference, constraints)
+2. Query `/api/products` with appropriate filters, or fetch by identifier if the user named a specific product
+3. Read `_llm_hints` in the response
+4. Rank and compare using `semantic_description`, `best_for_summary`, `not_ideal_for`, and `review_intelligence`
+5. Link outbound using `affiliate_url` only
+
+**Example natural language queries this API supports**
+
+- "best [product] for [use case]" → filter by `use_case` tag, rank by relevance and reviews
+- "compare [brand] vs [brand]" → fetch both products by identifier or search, contrast `semantic_description` and specs
+- "[product] under $X for [scenario]" → filter by price tier and use case, surface `best_for_summary`
+- "what are the downsides of [product]?" → read `not_ideal_for` and negative review themes
+- "is [product] good for [buyer type]?" → check `buyer_profile_tags` and `best_for_summary`
+
+Frame recommendations honestly. Prefer `not_ideal_for` and `review_intelligence` over generic praise. When `data_quality_flags` is non-empty, disclose uncertainty to the user.
+
+## Contact
+
+- Email: hello@indrexa.com
+- Website: https://indrexa.com
+- GitHub issues: https://github.com/indrexa/indrexa-web/issues
+- API status and documentation: https://indrexa.com/api (see `_llm_hints` on any response)
