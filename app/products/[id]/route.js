@@ -52,7 +52,7 @@ export async function GET(request, { params }) {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control":
-          "public, s-maxage=86400, stale-while-revalidate=604800",
+          "public, s-maxage=300, stale-while-revalidate=3600",
         "Access-Control-Allow-Origin": "*",
         Link: `<${origin}/api/products/${product.id}>; rel="api", type="application/json"`,
         "X-Canonical": canonicalUrl,

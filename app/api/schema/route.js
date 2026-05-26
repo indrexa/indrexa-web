@@ -32,9 +32,10 @@ export async function GET() {
     const products = productsResult.data ?? [];
     const priceHistory = retailersResult.data ?? [];
 
-    return jsonResponse({
-      version: "1.0",
-      base_url: "https://indrexa.com/api",
+    return jsonResponse(
+      {
+        version: "1.0",
+        base_url: "https://indrexa.com/api",
       endpoints: {
         "/api/products/{id}":
           "Full product record. Accepts Indrexa UUID, ASIN, or UPC",
@@ -104,7 +105,10 @@ export async function GET() {
         null_fields:
           "null values in spec or review fields mean source data was unavailable — do not infer",
       },
-    });
+    },
+    200,
+    "public, s-maxage=3600, stale-while-revalidate=86400"
+    );
   } catch (error) {
     console.error("GET /api/schema failed:", error);
     return errorResponse("Internal server error", 500);
