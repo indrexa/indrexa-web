@@ -1,13 +1,9 @@
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import {
   buildProductListItem,
-  collectCategorySegments,
-  collectRetailers,
-  collectUseCaseTags,
   errorResponse,
   fetchLatestPriceHistoryForProducts,
   jsonResponse,
-  matchesCategory,
   PRODUCT_LIST_SELECT,
 } from "../../../lib/products";
 
@@ -184,7 +180,8 @@ export async function GET(request) {
       const { data: retailerRows, error: retailerError } = await supabase
         .from("product_price_history")
         .select("product_id")
-        .eq("retailer", retailer);
+        .eq("retailer", retailer)
+        .limit(10000);
 
       if (retailerError) {
         throw retailerError;
@@ -205,40 +202,41 @@ export async function GET(request) {
       }
     }
 
-    let query = supabase.from("products").select(PRODUCT_LIST_SELECT);
-
-    if (useCase) {
-      query = query.contains("use_case_tags", [useCase]);
+    function applyFilters(query) {
+      if (useCase) query = query.contains("use_case_tags", [useCase]);
+      if (category) query = query.eq("category_id", category);
+      if (productIdsForRetailer) query = query.in("id", productIdsForRetailer);
+      return query;
     }
 
-    if (productIdsForRetailer) {
-      query = query.in("id", productIdsForRetailer);
+    const { count, error: countError } = await applyFilters(
+      supabase.from("products").select("*", { count: "exact", head: true }),
+    );
+
+    if (countError) {
+      throw countError;
     }
 
+    let dataQuery = applyFilters(
+      supabase.from("products").select(PRODUCT_LIST_SELECT),
+    );
     if (sortConfig) {
-      query = query.order(sortConfig.column, {
+      dataQuery = dataQuery.order(sortConfig.column, {
         ascending: sortConfig.ascending,
         nullsFirst: sortConfig.nullsFirst,
       });
     } else {
-      query = query.order("product_title", { ascending: true });
+      dataQuery = dataQuery.order("product_title", { ascending: true });
+    }
+    dataQuery = dataQuery.range(offset, offset + limit - 1);
+
+    const { data: products, error: productsError } = await dataQuery;
+
+    if (productsError) {
+      throw productsError;
     }
 
-    const { data: products, error } = await query;
-
-    if (error) {
-      throw error;
-    }
-
-    let filtered = products ?? [];
-    if (category) {
-      filtered = filtered.filter((product) =>
-        matchesCategory(product.product_category_path, category),
-      );
-    }
-
-    const total = filtered.length;
-    const page = filtered.slice(offset, offset + limit);
+    const page = products ?? [];
     const historyByProduct = await fetchLatestPriceHistoryForProducts(
       supabase,
       page.map((product) => product.id),
@@ -249,7 +247,7 @@ export async function GET(request) {
     );
 
     return jsonResponse({
-      total,
+      total: count ?? 0,
       limit,
       offset,
       products: listItems,

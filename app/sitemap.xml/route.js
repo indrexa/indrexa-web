@@ -28,14 +28,28 @@ export async function GET(request) {
     const supabase = getSupabaseAdmin();
     const origin = getSiteOrigin(request);
 
-    const { data: products, error } = await supabase
-      .from("products")
-      .select("id, indrexa_updated_at")
-      .order("indrexa_updated_at", { ascending: false });
+    const allProducts = [];
+    const PAGE_SIZE = 1000;
+    let from = 0;
 
-    if (error) {
-      throw error;
+    while (true) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, indrexa_updated_at")
+        .order("indrexa_updated_at", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || data.length === 0) break;
+      allProducts.push(...data);
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
+
+    const products = allProducts;
 
     const urlEntries = (products ?? [])
       .map((product) => {
