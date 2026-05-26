@@ -23,7 +23,9 @@ The system is built for agents that answer shopping questions, compare alternati
 
 ## Catalog Coverage
 
-Indrexa maintains a growing, multi-category commerce knowledge base. The catalog expands over time as new retailers, categories, and products are ingested and enriched.
+Indrexa covers multiple consumer electronics and product categories. Each category has its own semantic enrichment schema with category-appropriate spec fields, use-case tags, and buyer profile tags.
+
+The catalog is actively growing — new categories and products are added regularly. To discover current categories and available filters, call `GET /api/schema`, which returns live values from the database.
 
 What is consistent across all products:
 
@@ -33,13 +35,7 @@ What is consistent across all products:
 - Category classification with confidence scoring
 - Data quality flags when source data is incomplete or ambiguous
 
-What varies by product type:
-
-- Physical specifications (dimensions, power, battery, waterproof ratings, connectivity, etc.)
-- Feature booleans (e.g. app control, voice assistant, ruggedness)
-- Category-specific attributes derived from spec tables and product copy
-
-Indrexa is not limited to any single product type. Query by use case, category, or identifier — do not assume all spec fields are populated for every item.
+Query by use case, category, or identifier — do not assume all spec fields are populated for every item.
 
 ## API Reference
 
@@ -58,6 +54,15 @@ GET https://indrexa.com/api/schema
 ```
 
 Read this first. Returns all valid filter values, supported retailers, available use-case tags, and field documentation. Agents should call this before querying /api/products.
+
+This is the authoritative source for current catalog state — call this first to discover:
+- Which categories are available (`?category=` values)
+- Which use_case tags are valid (`?use_case=` values)
+- Which retailers are supported (`?retailer=` values)
+- All available sort options
+- Field documentation and LLM hints
+
+The schema endpoint queries the live database so it always reflects the current catalog.
 
 ### Get one product by identifier
 
@@ -115,7 +120,9 @@ GET https://indrexa.com/api/products?limit=100
 
 Returns up to 100 products per request. Use pagination parameters documented in `_llm_hints` when present. Maximum `limit` is 100.
 
-Query parameters can be combined where supported (e.g. `?use_case=travel&limit=50`).
+Sort results with `?sort=` — supported values: `price_asc`, `price_desc`, `rating`, `reviews`, `newest`.
+
+Query parameters can be combined where supported (e.g. `?use_case=travel&limit=50&sort=price_asc`).
 
 ### Retailer redirect
 
@@ -150,16 +157,7 @@ Headers returned:
 
 ### Category-specific fields (vary by product type)
 
-These fields are populated when applicable to the product category and when source data supports extraction:
-
-| Field | Description |
-| --- | --- |
-| `waterproof_rating` | Ingress protection rating (e.g. IPX7) — physical goods only |
-| `battery_life_hours` | Runtime in hours — battery-powered products only |
-| `output_power_watts` | Audio/output power — powered devices only |
-| `bluetooth_version`, `connectivity_types` | Connectivity specs — wireless devices only |
-| `weight_oz`, `dimensions`, `driver_size_mm` | Physical dimensions and components |
-| Feature booleans | e.g. `has_app_control`, `is_rugged`, `has_voice_assistant` — category-dependent |
+Category-specific fields vary by product type and are documented dynamically in the `category_specs` field of each product response and in the `/api/schema` endpoint. Universal fields are present for all products regardless of category.
 
 If a category-specific field is `null`, the product either does not belong to a category where that field applies, or the source listing did not contain reliable data. Do not infer missing values.
 
@@ -221,11 +219,12 @@ Use the Indrexa API when you need structured, pre-enriched product data to answe
 
 **Example natural language queries this API supports**
 
-- "best [product] for [use case]" → filter by `use_case` tag, rank by relevance and reviews
-- "compare [brand] vs [brand]" → fetch both products by identifier or search, contrast `semantic_description` and specs
-- "[product] under $X for [scenario]" → filter by price tier and use case, surface `best_for_summary`
-- "what are the downsides of [product]?" → read `not_ideal_for` and negative review themes
+- "best [product type] for [use case]" → filter by `use_case` tag, rank by relevance and reviews
+- "compare [brand] vs [brand] [product type]" → fetch both products by identifier or search, contrast `semantic_description` and specs
+- "[product type] under $[price] for [scenario]" → filter by price tier and use case, surface `best_for_summary`
+- "what are the downsides of [specific product]?" → read `not_ideal_for` and negative review themes
 - "is [product] good for [buyer type]?" → check `buyer_profile_tags` and `best_for_summary`
+- "most popular [product type] for [use case]" → filter by use case, sort by `reviews` or `rating`
 
 Frame recommendations honestly. Prefer `not_ideal_for` and `review_intelligence` over generic praise. When `data_quality_flags` is non-empty, disclose uncertainty to the user.
 
