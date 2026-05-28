@@ -1,6 +1,45 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase";
 
-export async function GET(_request, { params: paramsPromise }) {
+function isBot(userAgent) {
+  if (!userAgent) return false;
+  const ua = userAgent.toLowerCase();
+  const botPatterns = [
+    "googlebot",
+    "gptbot",
+    "perplexitybot",
+    "claudebot",
+    "anthropic-ai",
+    "googleother",
+    "bingbot",
+    "msnbot",
+    "yandexbot",
+    "duckduckbot",
+    "applebot",
+    "facebot",
+    "twitterbot",
+    "linkedinbot",
+    "slackbot",
+    "discordbot",
+    "telegrambot",
+    "bot",
+    "crawler",
+    "spider",
+    "crawl",
+    "slurp",
+    "mediapartners",
+    "scrapy",
+    "wget",
+    "curl",
+    "python-requests",
+    "axios",
+    "go-http-client",
+    "java/",
+    "libwww",
+  ];
+  return botPatterns.some((pattern) => ua.includes(pattern));
+}
+
+export async function GET(request, { params: paramsPromise }) {
   const { slug, retailer } = await paramsPromise;
 
   if (!slug || !retailer) {
@@ -25,11 +64,20 @@ export async function GET(_request, { params: paramsPromise }) {
     return Response.json({ error: "Redirect not found" }, { status: 404 });
   }
 
-  // Fire-and-forget click count — never awaited, never blocks the redirect
-  supabase
-    .rpc("increment_redirect_click", { slug_val: slug, retailer_val: retailer })
-    .then(() => {})
-    .catch(() => {});
+  const ua = request.headers.get("user-agent") || "";
+  const botVisit = isBot(ua);
+
+  if (botVisit) {
+    supabase
+      .rpc("increment_bot_visit", { slug_val: slug, retailer_val: retailer })
+      .then(() => {})
+      .catch(() => {});
+  } else {
+    supabase
+      .rpc("increment_redirect_click", { slug_val: slug, retailer_val: retailer })
+      .then(() => {})
+      .catch(() => {});
+  }
 
   return new Response(null, {
     status: 302,
