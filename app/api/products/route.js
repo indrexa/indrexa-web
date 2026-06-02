@@ -7,6 +7,13 @@ import {
   PRODUCT_LIST_SELECT,
 } from "../../../lib/products";
 
+const VALID_CATEGORY_IDS = new Set([
+  "bluetooth_speakers",
+  "headphones",
+  "wireless_earbuds",
+  "power_banks",
+]);
+
 const SORT_MAP = {
   price_asc: { column: "current_price_usd", ascending: true, nullsFirst: false },
   price_desc: { column: "current_price_usd", ascending: false, nullsFirst: false },
@@ -52,6 +59,19 @@ export async function GET(request) {
         "retailer parameter is required when retailer_id is provided",
         400,
       );
+    }
+
+    if (category && !VALID_CATEGORY_IDS.has(category)) {
+      return jsonResponse({
+        total: 0,
+        limit,
+        offset,
+        products: [],
+        _llm_hints: {
+          ...listHints(),
+          category_note: `'${category}' is not a valid category_id. Use /api/schema to see valid values (e.g. power_banks, headphones).`,
+        },
+      });
     }
 
     const supabase = getSupabaseAdmin();
