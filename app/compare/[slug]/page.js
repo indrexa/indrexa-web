@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import SiteHeader from "../../../components/SiteHeader";
 import { getSupabaseAdmin } from "../../../lib/supabase";
 import {
   buildProductDetailResponse,
@@ -272,6 +273,15 @@ function sanitizeDescription(text) {
     .trim();
 }
 
+// Truncate to first N sentences, capped at maxChars — keeps hero card compact.
+function shortDescription(text, maxSentences = 2, maxChars = 200) {
+  if (!text) return null;
+  const sentences = text.match(/[^.!?]+[.!?]+(?:\s|$)/g) ?? [];
+  const excerpt = sentences.slice(0, maxSentences).join("").trim();
+  const result = excerpt || text;
+  return result.length > maxChars ? result.slice(0, maxChars).trimEnd() + "…" : result;
+}
+
 function buildJsonLd(title, detailA, detailB) {
   function makeProduct(detail) {
     const rev = detail.review_intelligence ?? {};
@@ -403,6 +413,8 @@ export default async function ComparisonPage({ params }) {
         .card-price { font-size: 1.3rem; font-weight: 700; color: #1a6e2e; margin: 0.5rem 0 0; }
         @media (prefers-color-scheme: dark) { .card-price { color: #4caf72; } }
         .card-oos { font-size: 0.9rem; color: #888; margin: 0.5rem 0 0; }
+        .card-desc { font-size: 0.85rem; line-height: 1.5; color: #555; margin-top: 0.5rem; }
+        @media (prefers-color-scheme: dark) { .card-desc { color: #aaa; } }
         .btn { display: inline-block; margin-top: 0.9rem; padding: 0.5rem 1.1rem; background: #0066cc; color: #fff; border-radius: 5px; text-decoration: none; font-size: 0.875rem; font-weight: 600; }
         .btn:hover { background: #0052a3; color: #fff; }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -428,6 +440,7 @@ export default async function ComparisonPage({ params }) {
         footer nav a { margin-right: 1rem; }
       `}</style>
 
+      <SiteHeader />
       <main>
         <h1>{comparison.title}</h1>
 
@@ -505,10 +518,12 @@ export default async function ComparisonPage({ params }) {
 function ProductCard({ detail }) {
   const rev   = detail.review_intelligence ?? {};
   const offer = detail.best_offer;
+  const desc  = shortDescription(sanitizeDescription(detail.semantic_description));
   return (
     <div className="card">
       <div className="card-name">{detail.product_title}</div>
       <div className="card-brand">{detail.brand}</div>
+      {desc && <div className="card-desc">{desc}</div>}
       {rev.average_rating != null && (
         <div className="card-rating">
           {rev.average_rating}&#9733;
