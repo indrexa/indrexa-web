@@ -50,6 +50,7 @@ export async function GET(request) {
     const retailer = searchParams.get("retailer");
     const upc = searchParams.get("upc");
     const retailerId = searchParams.get("retailer_id");
+    const includeOos = searchParams.get("include_out_of_stock") === "true";
     const limit = parseLimit(searchParams.get("limit"));
     const offset = parseOffset(searchParams.get("offset"));
     const sortConfig = parseSort(searchParams.get("sort"));
@@ -223,6 +224,7 @@ export async function GET(request) {
     }
 
     function applyFilters(query) {
+      if (!includeOos) query = query.eq("in_stock", true);
       if (useCase) query = query.contains("use_case_tags", [useCase]);
       if (category) query = query.eq("category_id", category);
       if (productIdsForRetailer) query = query.in("id", productIdsForRetailer);
@@ -282,6 +284,8 @@ export async function GET(request) {
 function listHints() {
   return {
     detail_endpoint: "GET /api/products/{indrexa_id} for full record",
+    stock_default:
+      "results are in-stock products only by default — add ?include_out_of_stock=true to include all",
     available_filters: [
       "use_case",
       "category",
@@ -289,6 +293,7 @@ function listHints() {
       "upc",
       "retailer_id",
       "sort",
+      "include_out_of_stock",
     ],
     available_sort_values: [
       "price_asc",
@@ -297,7 +302,7 @@ function listHints() {
       "reviews",
       "newest",
     ],
-    sort_default: "no sort applied — Supabase natural order",
+    sort_default: "alphabetical by product_title when no sort param is given",
     pagination: "use offset parameter for next page",
     best_offer_null_means:
       "all known offers are currently out of stock — check all_offers for availability",
