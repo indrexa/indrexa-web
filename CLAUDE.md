@@ -10,3 +10,8 @@ and any *_KEY / *_TOKEN / *_SECRET.
 - NEVER print, echo, or log a secret's value, or include it in diffs or messages.
   Refer to the variable name, never the value.
 - If you find a secret hardcoded anywhere, stop and flag it to me.
+
+Comparison and product pages must be zero client-side JavaScript — server-render
+all content as static HTML so non-JS crawlers and LLM fetchers see it, and to
+keep latency minimal. Use HTML/CSS (e.g. <details>) for interactions, not React
+state, unless a feature genuinely cannot be done without JS (justify it first).
