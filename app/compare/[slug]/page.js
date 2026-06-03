@@ -163,14 +163,14 @@ function buildVerdict(detailA, detailB) {
   if (uniqA.length) {
     const themes = uniqA.slice(0, 2).map(cleanTheme);
     add("a",
-      `better ${normTheme(uniqA[0])}`,
+      normTheme(uniqA[0]),
       `reviewers highlight "${themes.join('", "')}"`,
     );
   }
   if (uniqB.length) {
     const themes = uniqB.slice(0, 2).map(cleanTheme);
     add("b",
-      `better ${normTheme(uniqB[0])}`,
+      normTheme(uniqB[0]),
       `reviewers highlight "${themes.join('", "')}"`,
     );
   }
@@ -189,18 +189,41 @@ function buildVerdict(detailA, detailB) {
     else if (pB - pA >= 5) add("b", "louder outdoor or party use", `${pB}W vs ${pA}W rated output`);
   }
 
-  // 5. Waterproof rating
-  function ipRank(ip) {
-    const m = String(ip ?? "").match(/ip(?:x)?(\d+)/i);
-    return m ? parseInt(m[1], 10) : -1;
+  // 5. Waterproof rating — compare water and dust digits independently.
+  // IPXn → water=n, no dust. IPmn → water=n (last), dust=m (first).
+  // IP67 vs IPX7 have equal water (both 7); only dust differs — don't surface
+  // "use near water" for equal water protection regardless of dust digit.
+  function ipWaterDigit(ip) {
+    const s = String(ip ?? "").toUpperCase().replace(/\s/g, "");
+    const xm = s.match(/^IPX(\d)/);  if (xm) return parseInt(xm[1], 10);
+    const fm = s.match(/^IP(\d)(\d)/); if (fm) return parseInt(fm[2], 10);
+    return -1;
   }
-  const wA = ipRank(specsA.waterproof_rating), wB = ipRank(specsB.waterproof_rating);
-  if (wA > wB && wA >= 5) {
-    add("a", "use near water",
-      `${specsA.waterproof_rating}${specsB.waterproof_rating ? ` vs ${specsB.waterproof_rating}` : " — no rating on other"}`);
-  } else if (wB > wA && wB >= 5) {
-    add("b", "use near water",
-      `${specsB.waterproof_rating}${specsA.waterproof_rating ? ` vs ${specsA.waterproof_rating}` : " — no rating on other"}`);
+  function ipDustDigit(ip) {
+    const fm = String(ip ?? "").toUpperCase().replace(/\s/g, "").match(/^IP(\d)(\d)/);
+    return fm ? parseInt(fm[1], 10) : -1;
+  }
+  const waterA = ipWaterDigit(specsA.waterproof_rating);
+  const waterB = ipWaterDigit(specsB.waterproof_rating);
+  if (waterA !== waterB && Math.max(waterA, waterB) >= 5) {
+    if (waterA > waterB) {
+      add("a", "use near water",
+        `${specsA.waterproof_rating}${specsB.waterproof_rating ? ` vs ${specsB.waterproof_rating}` : " — no rating on other"}`);
+    } else {
+      add("b", "use near water",
+        `${specsB.waterproof_rating}${specsA.waterproof_rating ? ` vs ${specsA.waterproof_rating}` : " — no rating on other"}`);
+    }
+  } else if (waterA === waterB && waterA >= 0) {
+    // Water equal — surface dust protection if it differs (e.g. IP67 vs IPX7)
+    const dustA = ipDustDigit(specsA.waterproof_rating);
+    const dustB = ipDustDigit(specsB.waterproof_rating);
+    if (dustA > dustB) {
+      add("a", "dusty environments",
+        `${specsA.waterproof_rating} dust + water vs ${specsB.waterproof_rating || "no rating"}`);
+    } else if (dustB > dustA) {
+      add("b", "dusty environments",
+        `${specsB.waterproof_rating} dust + water vs ${specsA.waterproof_rating || "no rating"}`);
+    }
   }
 
   // 6. Average rating (≥0.3 delta, ≥100 reviews)
@@ -214,28 +237,14 @@ function buildVerdict(detailA, detailB) {
     }
   }
 
-  // 7. not_ideal_for cross-check
-  for (const s of (detailB.not_ideal_for ?? [])) {
-    if (!picks.a.length) {
-      add("a", `when ${s} is a priority`, `${detailB.brand} notes "not ideal for ${s}"`);
-      break;
-    }
-  }
-  for (const s of (detailA.not_ideal_for ?? [])) {
-    if (!picks.b.length) {
-      add("b", `when ${s} is a priority`, `${detailA.brand} notes "not ideal for ${s}"`);
-      break;
-    }
-  }
-
-  // 8. Weight — lighter = more portable (≥2 oz)
+  // 7. Weight — lighter = more portable (≥2 oz)
   const ozA = specsA.weight_oz, ozB = specsB.weight_oz;
   if (ozA != null && ozB != null) {
     if (ozB - ozA >= 2 && !picks.a.length) add("a", "ultra-portable carry", `${ozA}oz vs ${ozB}oz`);
     if (ozA - ozB >= 2 && !picks.b.length) add("b", "ultra-portable carry", `${ozB}oz vs ${ozA}oz`);
   }
 
-  // 9. Price — last-resort numeric delta
+  // 8. Price — last-resort numeric delta
   if (priceA != null && priceB != null) {
     if (priceA < priceB && !picks.a.length) {
       add("a", "budget-conscious buyers", `$${priceA.toFixed(2)} vs $${priceB.toFixed(2)}`);
@@ -245,13 +254,13 @@ function buildVerdict(detailA, detailB) {
     }
   }
 
-  // 10. Positive theme count — absolute last resort
+  // 9. Positive theme count — absolute last resort
   if (!picks.a.length) {
-    add("a", "the most consistently praised option",
+    add("a", "overall customer satisfaction",
       `${normPosA.size} vs ${normPosB.size} positive review themes`);
   }
   if (!picks.b.length) {
-    add("b", "the most consistently praised option",
+    add("b", "overall customer satisfaction",
       `${normPosB.size} vs ${normPosA.size} positive review themes`);
   }
 
@@ -475,13 +484,13 @@ export default async function ComparisonPage({ params }) {
         <h2>Verdict — which should you buy?</h2>
         <div className="verdict-cols">
           <VerdictSide
-            label={`Pick ${labelA} if…`}
+            label={`Pick ${labelA} for:`}
             picks={verdict.a}
             offer={detailA.best_offer}
             productTitle={detailA.product_title}
           />
           <VerdictSide
-            label={`Pick ${labelB} if…`}
+            label={`Pick ${labelB} for:`}
             picks={verdict.b}
             offer={detailB.best_offer}
             productTitle={detailB.product_title}
@@ -559,7 +568,7 @@ function VerdictSide({ label, picks, offer, productTitle }) {
       <div className="verdict-heading">{label}</div>
       {picks.map((pick, i) => (
         <div key={i} className="pick">
-          <div className="pick-cond">You need {pick.condition}</div>
+          <div className="pick-cond">{capitalize(pick.condition)}</div>
           <div className="pick-ev">{pick.evidence}</div>
         </div>
       ))}
