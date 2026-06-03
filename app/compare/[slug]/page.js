@@ -118,6 +118,15 @@ function buildVisibleRows(detailA, detailB) {
 // Verdict — every claim cites a stored field value, no prose fallbacks
 // ---------------------------------------------------------------------------
 
+// Strip trailing parenthetical counts from review themes and normalize for
+// collision detection: "Sound quality (3,600)" → "sound quality"
+function cleanTheme(t) {
+  return t.replace(/\s*\(\d[\d,]*\)\s*$/, "").trim();
+}
+function normTheme(t) {
+  return cleanTheme(t).toLowerCase();
+}
+
 function buildVerdict(detailA, detailB) {
   const specsA = detailA.specs ?? {};
   const specsB = detailB.specs ?? {};
@@ -135,42 +144,48 @@ function buildVerdict(detailA, detailB) {
   const tagsA = new Set(detailA.use_case_tags ?? []);
   const tagsB = new Set(detailB.use_case_tags ?? []);
   for (const t of tagsA) {
-    if (!tagsB.has(t)) { add("a", t, `use_case_tags: "${t}" — not tagged on ${detailB.brand}`); break; }
+    if (!tagsB.has(t)) { add("a", t, `tagged "${t}" — not on ${detailB.brand}`); break; }
   }
   for (const t of tagsB) {
-    if (!tagsA.has(t)) { add("b", t, `use_case_tags: "${t}" — not tagged on ${detailA.brand}`); break; }
+    if (!tagsA.has(t)) { add("b", t, `tagged "${t}" — not on ${detailA.brand}`); break; }
   }
 
-  // 2. Positive review themes unique to each side
-  const posA = new Set(revA.top_positive_themes ?? []);
-  const posB = new Set(revB.top_positive_themes ?? []);
-  const uniqA = [...posA].filter((t) => !posB.has(t));
-  const uniqB = [...posB].filter((t) => !posA.has(t));
+  // 2. Positive review themes unique to each side.
+  // Normalize before comparison so "Sound quality (3,600)" and "Sound quality"
+  // are treated as the same theme and not used as a differentiator.
+  const rawPosA = revA.top_positive_themes ?? [];
+  const rawPosB = revB.top_positive_themes ?? [];
+  const normPosA = new Set(rawPosA.map(normTheme));
+  const normPosB = new Set(rawPosB.map(normTheme));
+  const uniqA = rawPosA.filter((t) => !normPosB.has(normTheme(t)));
+  const uniqB = rawPosB.filter((t) => !normPosA.has(normTheme(t)));
   if (uniqA.length) {
+    const themes = uniqA.slice(0, 2).map(cleanTheme);
     add("a",
-      `buyers who value ${uniqA[0]}`,
-      `top_positive_themes: "${uniqA.slice(0, 2).join('", "')}"`,
+      `better ${normTheme(uniqA[0])}`,
+      `reviewers highlight "${themes.join('", "')}"`,
     );
   }
   if (uniqB.length) {
+    const themes = uniqB.slice(0, 2).map(cleanTheme);
     add("b",
-      `buyers who value ${uniqB[0]}`,
-      `top_positive_themes: "${uniqB.slice(0, 2).join('", "')}"`,
+      `better ${normTheme(uniqB[0])}`,
+      `reviewers highlight "${themes.join('", "')}"`,
     );
   }
 
   // 3. Battery delta (≥3 h)
   const bA = specsA.battery_life_hours, bB = specsB.battery_life_hours;
   if (bA != null && bB != null) {
-    if (bA - bB >= 3) add("a", "all-day or multi-day use", `battery_life_hours: ${bA}h vs ${bB}h`);
-    else if (bB - bA >= 3) add("b", "all-day or multi-day use", `battery_life_hours: ${bB}h vs ${bA}h`);
+    if (bA - bB >= 3) add("a", "all-day or multi-day use", `${bA}h vs ${bB}h battery`);
+    else if (bB - bA >= 3) add("b", "all-day or multi-day use", `${bB}h vs ${bA}h battery`);
   }
 
   // 4. Output power (≥5 W)
   const pA = specsA.output_power_watts, pB = specsB.output_power_watts;
   if (pA != null && pB != null) {
-    if (pA - pB >= 5) add("a", "louder outdoor or party use", `output_power_watts: ${pA}W vs ${pB}W`);
-    else if (pB - pA >= 5) add("b", "louder outdoor or party use", `output_power_watts: ${pB}W vs ${pA}W`);
+    if (pA - pB >= 5) add("a", "louder outdoor or party use", `${pA}W vs ${pB}W rated output`);
+    else if (pB - pA >= 5) add("b", "louder outdoor or party use", `${pB}W vs ${pA}W rated output`);
   }
 
   // 5. Waterproof rating
@@ -181,10 +196,10 @@ function buildVerdict(detailA, detailB) {
   const wA = ipRank(specsA.waterproof_rating), wB = ipRank(specsB.waterproof_rating);
   if (wA > wB && wA >= 5) {
     add("a", "use near water",
-      `waterproof_rating: ${specsA.waterproof_rating}${specsB.waterproof_rating ? ` vs ${specsB.waterproof_rating}` : " — no rating on other"}`);
+      `${specsA.waterproof_rating}${specsB.waterproof_rating ? ` vs ${specsB.waterproof_rating}` : " — no rating on other"}`);
   } else if (wB > wA && wB >= 5) {
     add("b", "use near water",
-      `waterproof_rating: ${specsB.waterproof_rating}${specsA.waterproof_rating ? ` vs ${specsA.waterproof_rating}` : " — no rating on other"}`);
+      `${specsB.waterproof_rating}${specsA.waterproof_rating ? ` vs ${specsA.waterproof_rating}` : " — no rating on other"}`);
   }
 
   // 6. Average rating (≥0.3 delta, ≥100 reviews)
@@ -192,22 +207,22 @@ function buildVerdict(detailA, detailB) {
   const nA = revA.total_reviews ?? 0, nB = revB.total_reviews ?? 0;
   if (rA != null && rB != null) {
     if (rA - rB >= 0.3 && nA >= 100) {
-      add("a", "long-term reliability", `average_rating: ${rA}★ across ${nA.toLocaleString()} reviews vs ${rB}★`);
+      add("a", "long-term reliability", `${rA}★ across ${nA.toLocaleString()} reviews vs ${rB}★`);
     } else if (rB - rA >= 0.3 && nB >= 100) {
-      add("b", "long-term reliability", `average_rating: ${rB}★ across ${nB.toLocaleString()} reviews vs ${rA}★`);
+      add("b", "long-term reliability", `${rB}★ across ${nB.toLocaleString()} reviews vs ${rA}★`);
     }
   }
 
   // 7. not_ideal_for cross-check
   for (const s of (detailB.not_ideal_for ?? [])) {
     if (!picks.a.length) {
-      add("a", `when ${s} is a priority`, `not_ideal_for on ${detailB.brand}: "${s}"`);
+      add("a", `when ${s} is a priority`, `${detailB.brand} notes "not ideal for ${s}"`);
       break;
     }
   }
   for (const s of (detailA.not_ideal_for ?? [])) {
     if (!picks.b.length) {
-      add("b", `when ${s} is a priority`, `not_ideal_for on ${detailA.brand}: "${s}"`);
+      add("b", `when ${s} is a priority`, `${detailA.brand} notes "not ideal for ${s}"`);
       break;
     }
   }
@@ -215,28 +230,28 @@ function buildVerdict(detailA, detailB) {
   // 8. Weight — lighter = more portable (≥2 oz)
   const ozA = specsA.weight_oz, ozB = specsB.weight_oz;
   if (ozA != null && ozB != null) {
-    if (ozB - ozA >= 2 && !picks.a.length) add("a", "ultra-portable carry", `weight_oz: ${ozA} vs ${ozB}`);
-    if (ozA - ozB >= 2 && !picks.b.length) add("b", "ultra-portable carry", `weight_oz: ${ozB} vs ${ozA}`);
+    if (ozB - ozA >= 2 && !picks.a.length) add("a", "ultra-portable carry", `${ozA}oz vs ${ozB}oz`);
+    if (ozA - ozB >= 2 && !picks.b.length) add("b", "ultra-portable carry", `${ozB}oz vs ${ozA}oz`);
   }
 
   // 9. Price — last-resort numeric delta
   if (priceA != null && priceB != null) {
     if (priceA < priceB && !picks.a.length) {
-      add("a", "budget-conscious buyers", `current_price_usd: $${priceA.toFixed(2)} vs $${priceB.toFixed(2)}`);
+      add("a", "budget-conscious buyers", `$${priceA.toFixed(2)} vs $${priceB.toFixed(2)}`);
     }
     if (priceB < priceA && !picks.b.length) {
-      add("b", "budget-conscious buyers", `current_price_usd: $${priceB.toFixed(2)} vs $${priceA.toFixed(2)}`);
+      add("b", "budget-conscious buyers", `$${priceB.toFixed(2)} vs $${priceA.toFixed(2)}`);
     }
   }
 
   // 10. Positive theme count — absolute last resort
   if (!picks.a.length) {
     add("a", "the most consistently praised option",
-      `top_positive_themes count: ${posA.size} vs ${posB.size}`);
+      `${normPosA.size} vs ${normPosB.size} positive review themes`);
   }
   if (!picks.b.length) {
     add("b", "the most consistently praised option",
-      `top_positive_themes count: ${posB.size} vs ${posA.size}`);
+      `${normPosB.size} vs ${normPosA.size} positive review themes`);
   }
 
   return picks;
@@ -246,6 +261,17 @@ function buildVerdict(detailA, detailB) {
 // JSON-LD
 // ---------------------------------------------------------------------------
 
+// Strip price phrases baked into semantic_description at enrichment time.
+// e.g. "priced at $139.95" — price is stale the moment it changes, so strip
+// it rather than propagate wrong data into structured markup.
+function sanitizeDescription(text) {
+  if (!text) return text;
+  return text
+    .replace(/\b(priced\s+(?:at|around)|costs?\s+(?:about|around)?|retails?\s+(?:at|for)|available\s+for|offered\s+at)\s+\$[\d,]+(?:\.\d{2})?\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function buildJsonLd(title, detailA, detailB) {
   function makeProduct(detail) {
     const rev = detail.review_intelligence ?? {};
@@ -254,7 +280,7 @@ function buildJsonLd(title, detailA, detailB) {
       "@type": "Product",
       name: detail.product_title,
       brand: { "@type": "Brand", name: detail.brand },
-      description: detail.semantic_description,
+      description: sanitizeDescription(detail.semantic_description),
     };
     if (rev.average_rating != null && rev.total_reviews != null) {
       node.aggregateRating = {
