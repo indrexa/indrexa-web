@@ -3,6 +3,7 @@ import {
   buildProductDetailResponse,
   detectIdType,
   errorResponse,
+  fetchCategorySource,
   fetchLatestPriceHistoryForProduct,
   fetchProductByIdentifier,
   jsonResponse,
@@ -34,12 +35,12 @@ export async function GET(_request, { params: paramsPromise }) {
       return jsonResponse({ error: "Product not found", id }, 404);
     }
 
-    const priceHistory = await fetchLatestPriceHistoryForProduct(
-      supabase,
-      product.id,
-    );
+    const [priceHistory, specSource] = await Promise.all([
+      fetchLatestPriceHistoryForProduct(supabase, product.id),
+      fetchCategorySource(supabase, product.category_id),
+    ]);
 
-    const payload = buildProductDetailResponse(product, priceHistory);
+    const payload = buildProductDetailResponse(product, priceHistory, specSource);
     payload._llm_hints.best_offer_null_means =
       "all known offers are currently out of stock — check all_offers for availability";
 
