@@ -68,17 +68,12 @@ export default function SiteHeader() {
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           }
         }
-        /* ── mobile: stack vertically; panel in document flow (no float) ── */
+        /* ── mobile: details on its own line; panel in document flow (no float) ── */
         @media (max-width: 600px) {
           .site-header-bar {
             flex-direction: column;
             align-items: flex-start;
             gap: 0.15rem;
-          }
-          .site-header-tagline {
-            display: block;
-            margin-left: 0;
-            margin-top: 0.1rem;
           }
           .site-header-what {
             position: static;
