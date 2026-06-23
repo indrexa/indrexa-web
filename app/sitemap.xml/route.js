@@ -51,6 +51,26 @@ export async function GET(request) {
 
     const products = allProducts;
 
+    const allComparisons = [];
+    from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("comparisons")
+        .select("slug, updated_at")
+        .order("updated_at", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data || data.length === 0) break;
+      allComparisons.push(...data);
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
     const urlEntries = (products ?? [])
       .map((product) => {
         const lastmod = formatLastMod(product.indrexa_updated_at);
@@ -64,9 +84,21 @@ export async function GET(request) {
       })
       .join("\n");
 
+    const comparisonEntries = allComparisons
+      .map((comparison) => {
+        const lastmod = formatLastMod(comparison.updated_at);
+        const loc = `${origin}/compare/${comparison.slug}`;
+        return `  <url>
+    <loc>${escapeXml(loc)}</loc>${lastmod ? `\n    <lastmod>${escapeXml(lastmod)}</lastmod>` : ""}
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>`;
+      })
+      .join("\n");
+
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urlEntries}
+${urlEntries}${comparisonEntries ? `\n${comparisonEntries}` : ""}
 </urlset>`;
 
     return new Response(xml, {
